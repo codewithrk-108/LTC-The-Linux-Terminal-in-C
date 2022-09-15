@@ -106,3 +106,18 @@ It gives the latest 10 instructions .<br> It stores latest 20 instructions in a 
 
 My code is <b>Modular</b> in terms that i have made seperate functions for all the builting/fg/bg commands but all these functions exist in a single file 
 <br> named as <b>TerminalinC.c</b> .
+
+### 9. I/O Redirection
+<h3>I/O Redirection</h3>
+<img src="io.jpeg"></img> 
+
+Output : > Input : < Append : >> .
+<br> It can handle multiple < , > and >> combinations.
+<br>
+
+### 10. PIPES
+<h3>PIPES</h3>
+Contains both specification 2 and 3 of assignment 3.
+<img src="pipe.jpeg"></img> 
+
+<br> It can handle multiple pipes with I/O redirection. (In the starting command and the end command).

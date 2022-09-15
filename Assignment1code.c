@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <dirent.h>
@@ -18,7 +17,6 @@ Author : Rohan Kumar
 College : IIIT Hyderabad
 */
 // AHACODEJH
-int bhura;
 
 char bg_name[100];
 #define RED "\x1b[31m"
@@ -354,7 +352,6 @@ void handler_sigchld(int sig)
 		{
 			bg_proccess[k] = bg_proccess[k + 1];
 		}
-		// printf("%d\n",child_bg_process);
 		child_bg_process--;
 		flag = 0;
 	}
@@ -1443,90 +1440,14 @@ void print_dir()
 	printf("%s\n", cwd);
 }
 
-void jobs(int flag)
-{
-	for (int i = 0; i < child_bg_process; i++)
-	{
-		char itos[100];
-		// printf("%s --> %d\n", bg_proccess[i].pname, bg_proccess[i].pid);
-		sprintf(itos, "%d", bg_proccess[i].pid);
-		FILE *f_ex;
-		char p[200];
-		strcpy(p, "/proc/");
-		strcat(p, itos);
-		strcat(p, "/status");
-		f_ex = fopen(p, "r");
-
-		if (f_ex == NULL)
-		{
-			printf("NO PID\n");
-			return;
-		}
-		char pinf[1000][100];
-		int it = 0;
-		int a = 0;
-		char output[100][1000];
-		char store[40];
-		int f = 0;
-		int signa = 0;
-		while (fscanf(f_ex, "%s", pinf[it]) != EOF)
-		{
-			if (f == 1)
-			{
-				strcpy(store, pinf[it]);
-				f = 0;
-			}
-
-			if (f == 2)
-			{
-				sprintf(output[a], "[%s]", pinf[it]);
-				a++;
-				f = 0;
-			}
-			if (strcmp(pinf[it], "Pid:") == 0)
-				f = 2;
-			if (f == 3)
-			{
-				if (strcmp(pinf[it], "T") == 0)
-					signa = 0;
-				else
-					signa = 1;
-				f = 0;
-			}
-
-			if (strcmp(pinf[it], "State:") == 0)
-				f = 3;
-			it++;
-		}
-
-		if (signa == 0 && (flag == 0 || flag == 1))
-			printf("[%d] Stopped %s %s\n", i + 1, bg_proccess[i].pname, output[0]);
-		if (signa == 1 && (flag == 0 || flag == 2))
-			printf("[%d] Running %s %s\n", i + 1, bg_proccess[i].pname, output[0]);
-	}
-}
-
-void sig(int num1, int num2)
-{
-	int killnum = kill(bg_proccess[num1 - 1].pid, num2);
-	if (killnum == -1)
-	{
-		printf("bash : no such proccess found\n");
-	}
-}
-
-void send_to_fg(int num)
-{
-}
-
 void fg(char *token_for_inst, int hist_iter)
 {
-	bhura = hist_iter;
 	char *sup[100];
 	char command_name[1000];
 	int it = 0;
 	if (strcmp(token_for_inst, "echo") == 0)
 	{
+		// printf("ok\n");
 		echo_shell();
 	}
 	else if (strcmp(token_for_inst, "cd") == 0)
@@ -1553,42 +1474,6 @@ void fg(char *token_for_inst, int hist_iter)
 	{
 		pinfo_shell();
 	}
-	else if (strcmp(token_for_inst, "jobs") == 0)
-	{
-		int fl = 0;
-		char *g = strtok(NULL, " \t\n");
-		while (g != NULL)
-		{
-			if (strcmp(g, "-s") == 0)
-			{
-				fl = 1;
-			}
-			if (strcmp(g, "-r") == 0)
-			{
-				fl = 2;
-			}
-			g = strtok(NULL, " \t\n");
-		}
-		jobs(fl);
-	}
-	else if (strcmp(token_for_inst, "sig") == 0)
-	{
-		int num1 = 0, num2 = 0;
-		char *g = strtok(NULL, " \t\n");
-		num1 = atoi(g);
-		g = strtok(NULL, " \t\n");
-		num2 = atoi(g);
-		sig(num1, num2);
-	}
-	else if (strcmp(token_for_inst, "fg") == 0)
-	{
-		int num1 = 0;
-		char *g = strtok(NULL, " \t\n");
-		num1 = atoi(g);
-		// g = strtok(NULL, " \t\n");
-		// num2 = atoi(g);
-		send_to_fg(num1);
-	}
 	else
 	{
 		sup[it++] = token_for_inst;
@@ -1600,6 +1485,7 @@ void fg(char *token_for_inst, int hist_iter)
 		strcpy(command_name, token_for_inst);
 		while (token != NULL)
 		{
+			// printf("%s\n", token);
 			sup[it++] = token;
 			token = strtok(NULL, " \t\n");
 		}
@@ -1623,89 +1509,12 @@ void fg(char *token_for_inst, int hist_iter)
 			sprintf(sleep_s, "took %ds ", t);
 			ext_flag = 1;
 		}
-		printf("\n");
-	}
-}
-
-void pipe_fg(char **inst, int total, int hist_iter)
-{
-	char command_name[100];
-	char *sup[1000];
-	int fd[2];
-	int lite = 0;
-	for (int i = 0; i < total + 1; i++)
-	{
-		if (pipe(fd) < 0)
-		{
-			printf("bash : pipe not opening\n");
-			return;
-		}
-		char *garbage = strtok(NULL, " \t\n");
-		int it = 0;
-		while (garbage != NULL)
-		{
-			garbage = strtok(NULL, " \t\n");
-		}
-		char *token = strtok(inst[i], " \t\n");
-		if (token == NULL)
-		{
-			printf("Invalid Command\n");
-		}
-		strcpy(command_name, token);
-		while (token != NULL)
-		{
-			// printf("%s\n", token);
-			sup[it++] = token;
-			token = strtok(NULL, " \t\n");
-		}
-
-		sup[it] = NULL;
-		int clonei = dup(0);
-		int clone = dup(1);
-		int chd = fork();
-		if (chd == 0)
-		{
-			if (i == 0)
-			{
-				close(fd[0]);
-				dup2(fd[1], STDOUT_FILENO);
-				close(fd[1]);
-			}
-			else
-			{
-				fd[0] = dup(lite);
-				if (i >= total)
-				{
-					dup2(clone, 1);
-					close(clone);
-				}
-				else
-				{
-					close(fd[0]);
-					dup2(fd[1], STDOUT_FILENO);
-					close(fd[1]);
-				}
-				dup2(lite, STDIN_FILENO);
-				close(fd[0]);
-			}
-			close(fd[1]);
-			execvp(command_name, sup);
-			exit(1);
-		}
-		else
-		{
-			wait(NULL);
-			lite = dup(fd[0]);
-			close(fd[0]);
-			close(fd[1]);
-			dup2(clone, 1);
-			dup2(clonei, 0);
-		}
 	}
 }
 
 int main()
 {
+	// signal(SIGCHLD,handler_sigchld);
 	char *token_for_semicolon;
 	char inst[100][10005];
 	char input[10005];
@@ -1776,6 +1585,7 @@ int main()
 		prompt_flag = 0;
 		while (token_for_semicolon != NULL)
 		{
+			// printf("%s\n",token_for_semicolon);
 			for (int i = 0; i < strlen(token_for_semicolon); i++)
 			{
 				if (token_for_semicolon[i] != '\t' && token_for_semicolon[i] != ' ' && token_for_semicolon[i] != '\n')
@@ -1799,6 +1609,7 @@ int main()
 		char tempo[200];
 		char inst_set[100][1000];
 		int i_set = 0;
+		// printf("%d\n",total_inst);
 		for (int i = 0; i < total_inst; i++)
 		{
 			ans_parse = 0;
@@ -1846,134 +1657,10 @@ int main()
 				i_set++;
 			}
 		}
-
 		while (in_iter < i_set)
 		{
-			char **pipelined_inst = (char **)malloc(100 * sizeof(char *));
-			int flag_pipe = 0;
-			int itr = 0;
-			int pp = 0;
-
-			for (int i = 0; i < 100; i++)
-			{
-				pipelined_inst[i] = (char *)malloc(1000 * sizeof(char));
-			}
-			for (int i = 0; i < strlen(inst_set[in_iter]); i++)
-			{
-				if (inst_set[in_iter][i] == '|')
-				{
-					itr = 0;
-					pp++;
-					flag_pipe = 1;
-				}
-				else
-				{
-					pipelined_inst[pp][itr++] = inst_set[in_iter][i];
-				}
-			}
-			itr = 0;
-			int f, stdi = 0, stdo = 1;
-			for (int j = 0; j < pp + 1; j++)
-			{
-				int redirect = -1;
-				char input_file[100] = "";
-				char output_file[100] = "";
-				int store = strlen(inst_set[in_iter]);
-				char append_of[100] = "";
-				for (int i = 0; i < strlen(pipelined_inst[j]); i++)
-				{
-					if (redirect == 0)
-					{
-						input_file[itr++] = pipelined_inst[j][i];
-					}
-					if (redirect == 1)
-					{
-						output_file[itr++] = pipelined_inst[j][i];
-					}
-					if (redirect == 2)
-					{
-						append_of[itr++] = pipelined_inst[j][i];
-					}
-					if (i + 1 < strlen(pipelined_inst[j]) && pipelined_inst[j][i] == '>' && pipelined_inst[j][i + 1] == '>')
-					{
-						if (i < store)
-							store = i;
-						itr = 0;
-						redirect = 2;
-						i++;
-					}
-					else if (pipelined_inst[j][i] == '<')
-					{
-						if (i < store)
-							store = i;
-						itr = 0;
-						redirect = 0;
-					}
-					else if (pipelined_inst[j][i] == '>')
-					{
-						if (i < store)
-							store = i;
-						itr = 0;
-						redirect = 1;
-					}
-				}
-				stdo = 1, stdi = 0;
-				if (strlen(output_file) > 0)
-				{
-					stdo = dup(1);
-					char *ofname = strtok(output_file, " \t\n");
-					f = open(ofname, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-					int status = dup2(f, STDOUT_FILENO);
-					close(f);
-					while (ofname != NULL)
-					{
-						ofname = strtok(NULL, " \t\n");
-					}
-				}
-				else if (strlen(append_of) > 0)
-				{
-					stdo = dup(1);
-					char *ofname = strtok(append_of, " \t\n");
-					f = open(ofname, O_APPEND | O_CREAT | O_WRONLY, 0644);
-					int status = dup2(f, STDOUT_FILENO);
-					close(f);
-					while (ofname != NULL)
-					{
-						ofname = strtok(NULL, " \t\n");
-					}
-				}
-				if (flag_pipe == 0)
-				{
-					inst_set[in_iter][store] = '\0';
-				}
-				char *ofname;
-				pipelined_inst[j][store] = '\0';
-				if (strlen(input_file) > 0)
-				{
-					stdi = dup(0);
-					ofname = strtok(input_file, " \t\n");
-					char lite[100];
-					if (flag_pipe == 0)
-					{
-						strcpy(lite, ofname);
-						strcat(inst_set[in_iter], " ");
-						strcat(inst_set[in_iter], lite);
-					}
-					strcpy(lite, ofname);
-					strcat(pipelined_inst[j], " ");
-					strcat(pipelined_inst[j], lite);
-					while (ofname != NULL)
-					{
-						ofname = strtok(NULL, " \t\n");
-					}
-				}
-			}
-
-			if (flag_pipe == 1)
-			{
-				pipe_fg(pipelined_inst, pp, hist_iter);
-			}
-			else if (check_bg[in_iter] == 1)
+			// printf("ok2\n");
+			if (check_bg[in_iter] == 1)
 			{
 				strcpy(bg_name, inst_set[in_iter]);
 				bg(inst_set[in_iter]);
@@ -1997,13 +1684,10 @@ int main()
 			{
 				fprintf(hist_file, "%s\n", history[i]);
 			}
-
 			fclose(hist_file);
-			dup2(stdi, 0);
-			dup2(stdo, 1);
 			in_iter++;
 		}
-		
+		// printf("good1\n");
 		strcpy(input, "");
 	}
 	return 0;

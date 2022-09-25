@@ -3,8 +3,7 @@
 ## Linux Terminal in C
 <br>
 
-(Assignment 3 - 3 specifications done : 
-Here in Readme refer 9 and 10.)
+(Assignment 2 and 3 - All specifications)
 
 ### 1. Display :
 

@@ -1,0 +1,32 @@
+50&
+emacs
+&
+gedit&
+jobs
+sleep
+67&
+jobs
+sleep
+56&
+sleep
+89&
+jobs
+jobs
+sleep
+89&
+clear
+cd ~/file1/file2/file3/hj.txt 
+cd ~/file1/file2/file3/hj.txclear
+clear
+fg
+1
+-s
+jobs
+-r
+jobs
+cd ~/file1/file2/file3/hj.txclear
+jobs
+jobs
+fg
+2
+jobs

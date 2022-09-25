@@ -112,7 +112,7 @@ My code is <b>Modular</b> in terms that i have made seperate functions for all t
 
 ### 9. I/O Redirection
 <h3>I/O Redirection</h3>
-<img src="io.jpeg"></img> 
+<img src="./io.jpeg"></img> 
 
 Output : > Input : < Append : >> .
 <br> It can handle multiple < , > and >> combinations.
@@ -121,6 +121,47 @@ Output : > Input : < Append : >> .
 ### 10. PIPES
 <h3>PIPES</h3>
 Contains both specification 2 and 3 of assignment 3.
-<img src="pipe.jpeg"></img> 
+<img src="./pipe.jpeg"></img> 
 
 <br> It can handle multiple pipes with I/O redirection. (In the starting command and the end command).
+
+### 11. USER DEFINED COMMANDS
+<h4>USER DEFINED COMMANDS</h4>
+ 
+Commands Implemented : 
+<ul>
+<li>jobs</li>
+<li>sig</li>
+<li>fg</li>
+<li>bg</li>
+</ul>
+
+<!-- <img src="userdef.jpeg"></img>  -->
+
+<br>1. It gives all the proccesses running in the background.
+<br>2. Moves the background to the foreground using fg
+<br>3. Changes stopped process in backround to running in background
+<br>4. Sends different signals to the background processes using sig .
+
+
+### 12. SIGNALS
+<h4>USER DEFINED COMMANDS</h4>
+ 
+Commands Implemented : 
+<ul>
+<li>CTRL + C</li>
+<li>CTRL + Z</li>
+<li>CTRL + D</li>
+</ul>
+
+<!-- <img src="userdef.jpeg"></img>  -->
+
+<br>CTRL + Z stops the running fg process and sends it to background.
+<br>CTRL + C interuppts the running fg process.
+<br>CTRL + D logs out from running shell.
+
+### 13. AUTOCOMPLETE
+<h4>AUTOCOMPLETE</h4>
+ It shows the recommendations of the files as the user<br> types and presses tab key.
+
+<img src="./auto.jpeg"></img> 

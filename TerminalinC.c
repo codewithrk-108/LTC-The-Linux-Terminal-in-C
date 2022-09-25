@@ -1543,6 +1543,7 @@ void sig(int num1, int num2)
 
 void send_to_fg(int num)
 {
+	// printf("ok\n");
 	signal(SIGTTIN, SIG_IGN);
 	signal(SIGTTOU, SIG_IGN);
 	tcsetpgrp(STDIN_FILENO, bg_proccess[num - 1].pid);
@@ -1897,7 +1898,7 @@ void recomendations()
 			printf("%s\n", storage_recommendations[i]);
 		}
 	}
-	
+
 	add_str[ir] = '\0';
 	struct stat dir;
 

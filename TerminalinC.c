@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <termios.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -13,12 +14,15 @@
 #include <grp.h>
 #include <assert.h>
 #include <signal.h>
+#include <ctype.h>
 /*
 Author : Rohan Kumar
 College : IIIT Hyderabad
 */
 // AHACODEJH
 int bhura;
+char extra_string[300] = "";
+char init_string[300] = "";
 
 char bg_name[100];
 #define RED "\x1b[31m"
@@ -35,6 +39,7 @@ typedef struct proccess
 {
 	int pid;
 	char pname[100];
+	int pno;
 } Proccess;
 
 char history[25][200];
@@ -48,8 +53,10 @@ int ext_flag = 0;
 char sleep_s[100] = "";
 
 Proccess bg_proccess[100];
+Proccess fg_proccess[100];
 
 int child_bg_process = 0;
+int count_fg_process = 0;
 char buffer[200];
 int interuppt = 0;
 
@@ -75,6 +82,7 @@ void bg(char *inst)
 	}
 	else
 	{
+		setpgrp();
 		int ret = execvp(pass_2d[0], pass_2d);
 		if (ret == -1)
 		{
@@ -324,11 +332,11 @@ void shell_prompt(char *home_path)
 
 void handler_sigchld(int sig)
 {
-	// printf("jaijaijai\n");
 	int find_status;
 	int store = 0;
 	int flag = 0;
 	int pid = waitpid(-1, &find_status, WNOHANG);
+	// printf("%d\n",child_bg_process);
 	for (int i = 0; i < child_bg_process; i++)
 	{
 		if (bg_proccess[i].pid == pid)
@@ -354,7 +362,6 @@ void handler_sigchld(int sig)
 		{
 			bg_proccess[k] = bg_proccess[k + 1];
 		}
-		// printf("%d\n",child_bg_process);
 		child_bg_process--;
 		flag = 0;
 	}
@@ -1445,11 +1452,30 @@ void print_dir()
 
 void jobs(int flag)
 {
+	Proccess sorted_proccess[1000];
+	for(int i=0;i < child_bg_process ; i++)
+	{
+		sorted_proccess[i] = bg_proccess[i];
+		sorted_proccess[i].pno = i+1;
+	}
+	//bubble sort
+	for(int i=0;i<child_bg_process ; i++)
+	{
+		for(int j=i+1 ; j<child_bg_process ; j++)
+		{
+			if(strcmp(sorted_proccess[j].pname,sorted_proccess[j-1].pname)<0)
+			{
+				Proccess temp = sorted_proccess[j-1];
+				sorted_proccess[j-1]=sorted_proccess[j];
+				sorted_proccess[j] = temp;
+			}
+		}
+	}
 	for (int i = 0; i < child_bg_process; i++)
 	{
 		char itos[100];
 		// printf("%s --> %d\n", bg_proccess[i].pname, bg_proccess[i].pid);
-		sprintf(itos, "%d", bg_proccess[i].pid);
+		sprintf(itos, "%d", sorted_proccess[i].pid);
 		FILE *f_ex;
 		char p[200];
 		strcpy(p, "/proc/");
@@ -1500,9 +1526,9 @@ void jobs(int flag)
 		}
 
 		if (signa == 0 && (flag == 0 || flag == 1))
-			printf("[%d] Stopped %s %s\n", i + 1, bg_proccess[i].pname, output[0]);
+			printf("[%d] Stopped %s %s\n", sorted_proccess[i].pno, sorted_proccess[i].pname, output[0]);
 		if (signa == 1 && (flag == 0 || flag == 2))
-			printf("[%d] Running %s %s\n", i + 1, bg_proccess[i].pname, output[0]);
+			printf("[%d] Running %s %s\n", sorted_proccess[i].pno, sorted_proccess[i].pname, output[0]);
 	}
 }
 
@@ -1517,6 +1543,33 @@ void sig(int num1, int num2)
 
 void send_to_fg(int num)
 {
+	signal(SIGTTIN, SIG_IGN);
+	signal(SIGTTOU, SIG_IGN);
+	tcsetpgrp(STDIN_FILENO, bg_proccess[num - 1].pid);
+	kill(bg_proccess[num - 1].pid, SIGCONT);
+	for (int k = num - 1; k < child_bg_process - 1; k++)
+	{
+		bg_proccess[k] = bg_proccess[k + 1];
+	}
+	child_bg_process--;
+	waitpid(-1, NULL, WUNTRACED);
+	tcsetpgrp(STDIN_FILENO, getpgrp());
+	signal(SIGTTIN, SIG_DFL);
+	signal(SIGTTOU, SIG_DFL);
+}
+
+void resume_in_bg(int number)
+{
+	// printf("%d\n",child_bg_process);
+	if (number - 1 < child_bg_process && number >= 1)
+	{
+		kill(bg_proccess[number - 1].pid, SIGTTIN);
+		kill(bg_proccess[number - 1].pid, SIGCONT);
+	}
+	else
+	{
+		printf("Job Not Found\n");
+	}
 }
 
 void fg(char *token_for_inst, int hist_iter)
@@ -1589,6 +1642,15 @@ void fg(char *token_for_inst, int hist_iter)
 		// num2 = atoi(g);
 		send_to_fg(num1);
 	}
+	else if (strcmp(token_for_inst, "bg") == 0)
+	{
+		int num1 = 0;
+		char *g = strtok(NULL, " \t\n");
+		num1 = atoi(g);
+		// g = strtok(NULL, " \t\n");
+		// num2 = atoi(g);
+		resume_in_bg(num1);
+	}
 	else
 	{
 		sup[it++] = token_for_inst;
@@ -1615,7 +1677,9 @@ void fg(char *token_for_inst, int hist_iter)
 
 		if (id != 0)
 		{
+			fg_proccess[count_fg_process - 1].pid = id;
 			waitpid(id, &states, WUNTRACED | WCONTINUED);
+			// fg_proccess[count_fg_process - 1].pid = id;
 		}
 		t = time(NULL) - t;
 		if (t >= 1)
@@ -1704,6 +1768,359 @@ void pipe_fg(char **inst, int total, int hist_iter)
 	}
 }
 
+void ctrlc_handler()
+{
+	if (count_fg_process == 0)
+	{
+		printf("\n");
+		shell_prompt(home_path);
+		fflush(stdout);
+	}
+	else
+	{
+		if (fg_proccess[count_fg_process].pid != 0)
+			kill(fg_proccess[count_fg_process].pid, SIGINT);
+		count_fg_process--;
+	}
+}
+
+void ctrlz_handler()
+{
+	if (count_fg_process > 0)
+	{
+		if (fg_proccess[count_fg_process - 1].pid != 0)
+		{
+			// printf("ok");
+			kill(fg_proccess[count_fg_process - 1].pid, SIGTSTP);
+			bg_proccess[child_bg_process].pid = fg_proccess[count_fg_process - 1].pid;
+			strcpy(bg_proccess[child_bg_process].pname, fg_proccess[count_fg_process - 1].pname);
+			child_bg_process++;
+			count_fg_process--;
+		}
+		else
+		{
+			count_fg_process--;
+			printf("\n");
+			shell_prompt(home_path);
+			fflush(stdout);
+		}
+	}
+	else
+	{
+		printf("\n");
+		shell_prompt(home_path);
+		fflush(stdout);
+	}
+}
+
+
+void die(const char *s)
+{
+	perror(s);
+	exit(1);
+}
+
+struct termios orig_termios;
+
+void disableRawMode()
+{
+	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
+		die("tcsetattr");
+}
+char *autofill = "";
+char add_str[200];
+
+// Autocomplete
+
+void recomendations()
+{
+	// printf("ok\n");
+
+	char curr[300];
+	getcwd(curr, sizeof(curr));
+	struct dirent *file_pt;
+	DIR *directory = opendir(curr);
+	struct dirent *fileptr;
+	char *storage_recommendations[1000];
+	int iterator = 0;
+	int minima = __INT_MAX__;
+	// printf("hello\n");
+	// printf("jaiho%s\n",extra_string);
+	while ((fileptr = readdir(directory)) != NULL)
+	{
+		if (strcmp(extra_string, "") == 0 || strncmp(extra_string, fileptr->d_name, strlen(extra_string)) == 0)
+		{
+			if (minima > strlen(fileptr->d_name))
+			{
+				minima = strlen(fileptr->d_name);
+			}
+			storage_recommendations[iterator++] = fileptr->d_name;
+		}
+	}
+	// printf("oktill\n");
+	// printf("%d\n", iterator);
+	int chal_hatt = 0;
+	int kr = 0, ir = 0;
+	for (int j = 0; j < minima; j++)
+	{
+		kr = 0;
+		for (int i = 0; i < iterator; i++)
+		{
+			if (storage_recommendations[i][j] == storage_recommendations[0][j])
+			{
+				kr++;
+			}
+		}
+		if (iterator > 0)
+		{
+			if (kr == iterator)
+			{
+				// printf("ok\n");
+				add_str[ir++] = storage_recommendations[0][j];
+			}
+			else
+			{
+				chal_hatt = 1;
+				break;
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+	if (chal_hatt || iterator > 1)
+	{
+		printf("\n");
+		for (int i = 0; i < iterator; i++)
+		{
+			printf("%s\n", storage_recommendations[i]);
+		}
+	}
+	
+	add_str[ir] = '\0';
+	struct stat dir;
+
+	if (iterator == 1)
+	{
+		strcpy(add_str, storage_recommendations[0]);
+		if(stat(storage_recommendations[0],&dir)==0)
+		{
+			if(S_ISDIR(dir.st_mode))
+			{
+				strcat(add_str,"/");
+			}
+			else
+			{
+				strcat(add_str," ");
+			}
+		}
+	}
+}
+
+/**
+ * Enable row mode for the terminal
+ * The ECHO feature causes each key you type to be printed to the terminal, so you can see what you’re typing.
+ * Terminal attributes can be read into a termios struct by tcgetattr().
+ * After modifying them, you can then apply them to the terminal using tcsetattr().
+ * The TCSAFLUSH argument specifies when to apply the change: in this case, it waits for all pending output to be written to the terminal, and also discards any input that hasn’t been read.
+ * The c_lflag field is for “local flags”
+ */
+void enableRawMode()
+{
+	if (tcgetattr(STDIN_FILENO, &orig_termios) == -1)
+		die("tcgetattr");
+	atexit(disableRawMode);
+	struct termios raw = orig_termios;
+	raw.c_lflag &= ~(ICANON | ECHO);
+	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
+		die("tcsetattr");
+}
+char *good;
+char boy[300] = "";
+
+char *takeInput()
+{
+	char *inp = malloc(sizeof(char) * 100);
+	char c;
+	setbuf(stdout, NULL);
+	enableRawMode();
+	memset(inp, '\0', 100);
+	int pt = 0;
+	// printf("%s %s", init_string, add_str);
+	// fprintf(stdin, "%s%s", init_string, add_str);
+	while (read(STDIN_FILENO, &c, 1) == 1)
+	{
+		if (iscntrl(c))
+		{
+			if (c == 10)
+				break;
+			else if (c == 27)
+			{
+				char buf[3];
+				buf[2] = 0;
+				if (read(STDIN_FILENO, buf, 2) == 2)
+				{ // length of escape code
+					printf("\rarrow key: %s", buf);
+				}
+			}
+			else if (c == 127)
+			{ // backspace
+				if (pt > 0)
+				{
+					if (inp[pt - 1] == 9)
+					{
+						for (int i = 0; i < 7; i++)
+						{
+							printf("\b");
+						}
+					}
+					inp[--pt] = '\0';
+					printf("\b \b");
+				}
+			}
+			else if (c == 9)
+			{ // TAB character
+				char orig[300];
+				strcpy(orig, inp);
+				// printf("%s\n",inp);
+				// printf("h\n%s\n",inp);
+				inp[pt++] = c;
+				for (int i = 0; i < 8; i++)
+				{ // TABS should be 8 spaces
+					printf(" ");
+				}
+				inp[pt - 1] = '\0';
+				inp[pt--];
+				int ct = 0;
+				char *pathauto = NULL;
+				char *token = strtok(inp, " \t\n");
+				while (token != NULL)
+				{
+					// printf("%d\n",ct);
+					if (ct > 0)
+						pathauto = token;
+					ct++;
+					token = strtok(NULL, " \t\n");
+				}
+				if (pathauto == NULL)
+				{
+					// printf("hello\n%s\nhello", inp);
+
+					// printf("kk\n");
+					strcpy(extra_string, "");
+					recomendations();
+					shell_prompt(home_path);
+					printf("%s", orig);
+					strcpy(inp, orig);
+					printf("%s", &add_str[strlen(extra_string)]);
+					continue;
+					// printf("%s", &add_str[strlen(extra_string)]);
+					// return inp;
+				}
+				char *token2 = strtok(pathauto, " \t\n");
+				// printf("o\n");
+				char pte[200];
+				getcwd(pte, sizeof(pte));
+				// printf("%s\n",token2);
+				if (token2 == NULL)
+				{
+					// printf("hello\n%s\nhello", inp);
+					strcpy(extra_string, "");
+					recomendations();
+					shell_prompt(home_path);
+					printf("%s", orig);
+					strcpy(inp, orig);
+					printf("%s", &add_str[strlen(extra_string)]);
+					continue;
+					// printf("%s", &add_str[strlen(extra_string)]);
+					// return inp;
+				}
+				// printf("%s\n",token2);
+				int sp = 0, ep = strlen(token2) - 1;
+				// printf("%c\n", token2[sp]);
+				// printf("%c\n", token2[ep]);
+				while ((token2[sp] == ' ' || token2[sp] == '\t') && sp < strlen(token2))
+					sp++;
+				while (ep >= 0 && ((token2[ep] == ' ' || token2[ep] == '\t') || token2[ep] != '/'))
+					ep--;
+				// sp = 0;
+				int shell_flag = -1;
+				if (ep == -1)
+					ep = 0;
+				if (token2[ep] == '/')
+				{
+					strcpy(extra_string, &token2[ep + 1]);
+				}
+				else
+					strcpy(extra_string, &token2[ep]);
+
+				token2[ep] = '\0';
+				printf("\n");
+				if (token2[sp] == '/')
+				{
+					shell_flag = 5;
+					shell_prakat_ho(shell_flag, &token2[sp]);
+				}
+				else if (strcmp(&token2[sp], "..") == 0)
+				{
+					shell_flag = 1;
+					shell_prakat_ho(shell_flag, "");
+				}
+				else if (strcmp(&token2[sp], ".") == 0)
+				{
+					shell_flag = 0;
+					shell_prakat_ho(shell_flag, "");
+				}
+				else if (strcmp(&token2[sp], "-") == 0)
+				{
+					shell_flag = 3;
+					shell_prakat_ho(shell_flag, "");
+				}
+				else if (token2[sp] == '~')
+				{
+					shell_flag = 4;
+					shell_prakat_ho(shell_flag, &token2[sp + 1]);
+				}
+				else
+				{
+					shell_flag = 2;
+					shell_prakat_ho(shell_flag, token2);
+				}
+				recomendations();
+				chdir(pte);
+				// printf("hello\n%s\nhello", inp);
+				// printf("\n%s\n",orig);
+				strcat(orig, &add_str[strlen(extra_string)]);
+				shell_prompt(home_path);
+				printf("%s", orig);
+				pt += strlen(&add_str[strlen(extra_string)]);
+				strcpy(inp, orig);
+			}
+			else if (c == 4)
+			{
+				exit(0);
+			}
+			else
+			{
+				printf("%d\n", c);
+			}
+		}
+		else
+		{
+			inp[pt++] = c;
+			printf("%c", c);
+		}
+	}
+	disableRawMode();
+	// printf("ok\n");
+	// printf("hello%s\n",inp);
+	return inp;
+	// printf("\nInput Read: [%s]\n", inp);
+
+	// }
+}
+
 int main()
 {
 	char *token_for_semicolon;
@@ -1731,15 +2148,23 @@ int main()
 
 	while (1)
 	{
-		// struct sigaction sd;
-		// sd.sa_handler = &handler_sigchld;
-		// sigaction(SIGCHLD, &sd, NULL);
 		signal(SIGCHLD, handler_sigchld);
+		signal(SIGINT, ctrlc_handler);
+		signal(SIGTSTP, ctrlz_handler);
+
 		total_inst = 0;
 		shell_prompt(home_path);
-		fgets(input, 10004, stdin);
+		// strcpy(add_str, "");
+		// strcpy(init_string, "");
 
-		input[strlen(input) - 1] = '\0';
+		// fgets(input,10004,stdin);
+		good = takeInput();
+		strcpy(boy, good);
+		printf("\n");
+		// printf("\n");
+		// printf("%s\n",good);
+		strcpy(input, good);
+
 		int hist_flag = 0;
 		int h_flag = 0;
 		for (int i = 0; i < strlen(input); i++)
@@ -1773,6 +2198,7 @@ int main()
 			hist_iter++;
 		}
 		token_for_semicolon = strtok(input, ";");
+		// printf("%s\n",token_for_semicolon);
 		prompt_flag = 0;
 		while (token_for_semicolon != NULL)
 		{
@@ -1787,7 +2213,7 @@ int main()
 			if (prompt_flag == 0)
 				break;
 			strcpy(inst[total_inst], token_for_semicolon);
-			// printf("%s\n",inst_set[total_inst]);
+			// printf("%s\n",inst[total_inst]);
 			total_inst++;
 			token_for_semicolon = strtok(NULL, ";");
 		}
@@ -1981,6 +2407,9 @@ int main()
 			}
 			else
 			{
+				strcpy(fg_proccess[count_fg_process].pname, inst_set[in_iter]);
+				fg_proccess[count_fg_process].pid = 0;
+				count_fg_process++;
 				token_for_inst = strtok(inst_set[in_iter], " \t\n");
 				if (token_for_inst == NULL)
 				{
@@ -2003,7 +2432,6 @@ int main()
 			dup2(stdo, 1);
 			in_iter++;
 		}
-		
 		strcpy(input, "");
 	}
 	return 0;

@@ -3,6 +3,9 @@
 ## Linux Terminal in C
 <br>
 
+(Assignment 3 - 3 specifications done : 
+Here in Readme refer 9 and 10.)
+
 ### 1. Display :
 
 <img src="./terminal.jpeg"></img>

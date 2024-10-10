@@ -1,9 +1,4 @@
-# OSN ASSIGNMENT 2
-
-## Linux Terminal in C
-<br>
-
-(Assignment 2 and 3 - All specifications)
+# LTC : The Linux Terminal in C
 
 ### 1. Display :
 
